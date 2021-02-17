@@ -1,0 +1,5 @@
+sudo nano /etc/dhcpcd.conf
+
+configure static ip eth0
+
+or static ip wlan0 using static ip details and router details
