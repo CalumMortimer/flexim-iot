@@ -1,0 +1,3 @@
+sudo nano /etc/rc.local
+
+sudo python /home/pi/flexim.py &

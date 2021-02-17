@@ -1,0 +1,14 @@
+https://raspberrypi.stackexchange.com/questions/68811/how-do-i-set-raspbian-to-use-the-primary-time-server-time-nist-gov
+
+sudo apt-get install ntp
+
+sudo service ntp restart
+
+cd ..
+cd ..
+cd etc
+
+sudo nano ntp.conf
+
+comment out all lines that say pool and add:
+server 172.24.3.12
