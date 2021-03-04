@@ -48,10 +48,10 @@ point_list = [
     #ChA Sound Speed
     (ip_address, 'analogInput:106', 'presentValue'),
     #ChA Flow Rate & Diagnostics
-    (ip_address, 'analogInput:108', 'presentValue'),
-    (ip_address, 'analogInput:108', 'eventState'),
-    (ip_address, 'analogInput:108', 'reliability'),
-    (ip_address, 'analogInput:108', 'outOfService'),
+    (ip_address, 'analogInput:111', 'presentValue'),
+    (ip_address, 'analogInput:111', 'eventState'),
+    (ip_address, 'analogInput:111', 'reliability'),
+    (ip_address, 'analogInput:111', 'outOfService'),
     #ChA SNR
     (ip_address, 'analogInput:121', 'presentValue'),
     #ChA SCNR
@@ -61,10 +61,10 @@ point_list = [
     #ChB Sound Speed
     (ip_address, 'analogInput:206', 'presentValue'),
     #ChB Flow Rate & Diagnostics
-    (ip_address, 'analogInput:208', 'presentValue'),
-    (ip_address, 'analogInput:208', 'eventState'),
-    (ip_address, 'analogInput:208', 'reliability'),
-    (ip_address, 'analogInput:208', 'outOfService'),
+    (ip_address, 'analogInput:211', 'presentValue'),
+    (ip_address, 'analogInput:211', 'eventState'),
+    (ip_address, 'analogInput:211', 'reliability'),
+    (ip_address, 'analogInput:211', 'outOfService'),
     #ChB SNR
     (ip_address, 'analogInput:221', 'presentValue'),
     #ChB SCNR
@@ -232,6 +232,8 @@ def _print_rejected_recrods_Exceptions(err):
 
 
 def main():
+    time.sleep(100)
+
     logging.basicConfig()
     # parse the command line arguments
     parser = ConfigArgumentParser(description=__doc__)
