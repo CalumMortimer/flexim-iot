@@ -5,30 +5,25 @@ Recurring Read of a Flexim Unit
 
 Based on BACpypes with AWS connector
 
-IP addresses site dependent
+IP addresses - site dependent
 """
 
 import logging
 import time
+import os
 import boto3
 from botocore.config import Config
-
 from collections import deque
-
 from bacpypes.debugging import bacpypes_debugging, ModuleLogger
 from bacpypes.consolelogging import ConfigArgumentParser
-
 from bacpypes.core import run, deferred
 from bacpypes.iocb import IOCB
 from bacpypes.task import RecurringTask
-
 from bacpypes.pdu import Address
 from bacpypes.object import get_datatype
-
 from bacpypes.apdu import ReadPropertyRequest
 from bacpypes.primitivedata import Unsigned, ObjectIdentifier
 from bacpypes.constructeddata import Array
-
 from bacpypes.app import BIPSimpleApplication
 from bacpypes.local.device import LocalDeviceObject
 
@@ -36,9 +31,11 @@ from bacpypes.local.device import LocalDeviceObject
 _debug = 0
 _log = ModuleLogger(globals())
 
+# create a new boto3 session with timestream
 session = boto3.Session()
 client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
 
+# the IP address of the target - local IP is stored within BACpypes.ini file
 ip_address = '172.23.99.14'
 
 # point list
@@ -87,7 +84,8 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
         # install the task
         self.install_task()
 
-        #boolean allowing two batches per AWS transmission
+        # boolean allowing two batches per AWS transmission, if you want to batch
+        # AWS use a 1KB write size so this is worth doing if ingestion is less than 500B
         #self.batchToggle = False
 
         #array to store Records
@@ -143,15 +141,13 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
                     'MeasureValueType': valueType,
                     })
 
-            #print(self.records)
-
-            #print on every second fetch from instrument
+            # for batching applications only
             #self.batchToggle = not self.batchToggle
-            #print("toggle set to: "+ str(self.batchToggle))
-
             #if self.batchToggle == False:
+            
+            # replace with correct database and table names
             try:
-                result = client.write_records(DatabaseName="ScottishNHS",TableName="inverclydeRoyal",Records=self.records)
+                result = client.write_records(DatabaseName="{databaseName}",TableName="{tableName}",Records=self.records)
                 #print("WriteRecords Status: [%s]" % result['ResponseMetadata']['HTTPStatusCode'])
             except client.exceptions.RejectedRecordsException as err:
                 _print_rejected_recrods_Exceptions(err)
@@ -228,10 +224,8 @@ def _print_rejected_recrods_Exceptions(err):
 #
 #   __main__
 #
-
-
-
 def main():
+    # wait for a bit so that the IT connection is established on boot
     time.sleep(100)
 
     logging.basicConfig()
@@ -253,13 +247,20 @@ def main():
     this_device = LocalDeviceObject(ini=args.ini)
     if _debug: _log.debug("    - this_device: %r", this_device)
 
-    # make a dog
-    this_application = PrairieDog(args.interval, this_device, args.ini.address)
-    if _debug: _log.debug("    - this_application: %r", this_application)
 
-    _log.debug("running")
-
-    run()
+    # reboot the system on all uncaught exceptions to ensure best attempt at logging
+    try:
+        # make a dog
+        this_application = PrairieDog(args.interval, this_device, args.ini.address)
+        if _debug: _log.debug("    - this_application: %r", this_application)
+        _log.debug("running")
+        run()
+    except:
+        print("could not initialise the application - is the network configured correctly?")
+        time.sleep(1)
+        print("hard rebooting in 10 seconds")
+        time.sleep(10)
+        os.system("sudo reboot")
 
     _log.debug("fini")
 

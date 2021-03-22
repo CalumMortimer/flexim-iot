@@ -253,7 +253,7 @@ def main():
         result = client.write_records(DatabaseName="ScottishNHS",TableName="inverclydeRoyal",Records=records)
         print("WriteRecords Status: [%s]" % result['ResponseMetadata']['HTTPStatusCode'])
     except client.exceptions.RejectedRecordsException as err:
-        print(err)
+        _print_rejected_recrods_Exceptions(err)
     except Exception as err:
         print("Error:",err)
 
