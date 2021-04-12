@@ -36,7 +36,7 @@ session = boto3.Session()
 client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
 
 # the IP address of the target - local IP is stored within BACpypes.ini file
-ip_address = '172.23.99.14'
+ip_address = '10.10.2.30'
 
 # point list
 point_list = [
@@ -134,7 +134,7 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
                     valueType = "VARCHAR"
                 self.records.append({
                     'Time': currentTime,
-                    'Dimensions': [{'Name': 'tag', 'Value': '457000'},
+                    'Dimensions': [{'Name': 'tag', 'Value': '457999'},
                                    {'Name': 'BACnet_ref', 'Value': request[1]}],
                     'MeasureName': request[2],
                     'MeasureValue': str(response),
@@ -226,7 +226,7 @@ def _print_rejected_recrods_Exceptions(err):
 #
 def main():
     # wait for a bit so that the IT connection is established on boot
-    time.sleep(100)
+    time.sleep(60)
 
     logging.basicConfig()
     # parse the command line arguments
@@ -250,6 +250,14 @@ def main():
 
     # reboot the system on all uncaught exceptions to ensure best attempt at logging
     try:
+        os.system("sudo /etc/init.d/ntp stop")
+        print("ntp stopped")
+        time.sleep(10)
+        os.system("sudo ntpd -q -g")
+        print("ntp synchronizing")
+        time.sleep(10)
+        os.system("sudo /etc/init.d/ntp start")
+        print("ntp restarted")
         # make a dog
         this_application = PrairieDog(args.interval, this_device, args.ini.address)
         if _debug: _log.debug("    - this_application: %r", this_application)
