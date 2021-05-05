@@ -33,7 +33,7 @@ _log = ModuleLogger(globals())
 
 # create a new boto3 session with timestream
 session = boto3.Session()
-client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
+client = session.client('timestream-write',region_name="us-east-2",aws_access_key_id="t",aws_secret_access_key="y",config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
 
 # the IP address of the target - local IP is stored within BACpypes.ini file
 ip_address = '10.10.2.30'
@@ -147,7 +147,7 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
             
             # replace with correct database and table names
             try:
-                result = client.write_records(DatabaseName="{databaseName}",TableName="{tableName}",Records=self.records)
+                result = client.write_records(DatabaseName="y",TableName="t",Records=self.records)
                 #print("WriteRecords Status: [%s]" % result['ResponseMetadata']['HTTPStatusCode'])
             except client.exceptions.RejectedRecordsException as err:
                 _print_rejected_recrods_Exceptions(err)
@@ -250,13 +250,13 @@ def main():
 
     # reboot the system on all uncaught exceptions to ensure best attempt at logging
     try:
-        os.system("sudo /etc/init.d/ntp stop")
+        os.system("timeout 60 /etc/init.d/ntp stop")
         print("ntp stopped")
         time.sleep(10)
-        os.system("sudo ntpd -q -g")
+        os.system("timeout 60 ntpd -q -g")
         print("ntp synchronizing")
         time.sleep(10)
-        os.system("sudo /etc/init.d/ntp start")
+        os.system("timeout 60 /etc/init.d/ntp start")
         print("ntp restarted")
         # make a dog
         this_application = PrairieDog(args.interval, this_device, args.ini.address)
@@ -268,7 +268,7 @@ def main():
         time.sleep(1)
         print("hard rebooting in 10 seconds")
         time.sleep(10)
-        os.system("sudo reboot")
+        os.system("reboot")
 
     _log.debug("fini")
 
