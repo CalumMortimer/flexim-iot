@@ -7,11 +7,11 @@ Based on BACpypes with AWS connector
 
 IP addresses - site dependent
 """
-
 import logging
 import time
 import os
 import boto3
+from dotenv import load_dotenv
 from botocore.config import Config
 from collections import deque
 from bacpypes.debugging import bacpypes_debugging, ModuleLogger
@@ -26,6 +26,7 @@ from bacpypes.primitivedata import Unsigned, ObjectIdentifier
 from bacpypes.constructeddata import Array
 from bacpypes.app import BIPSimpleApplication
 from bacpypes.local.device import LocalDeviceObject
+load_dotenv()
 
 # some debugging
 _debug = 0
@@ -33,40 +34,53 @@ _log = ModuleLogger(globals())
 
 # create a new boto3 session with timestream
 session = boto3.Session()
-client = session.client('timestream-write',region_name="us-east-2",aws_access_key_id="t",aws_secret_access_key="y",config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
-
-# the IP address of the target - local IP is stored within BACpypes.ini file
-ip_address = '10.10.2.30'
+client = session.client('timestream-write',region_name="us-east-2",aws_access_key_id=os.getenv("ACCESS_KEY"),aws_secret_access_key=os.getenv("SECRET_KEY"),config=Config(read_timeout=20, max_pool_connections=5000,retries={'max_attempts': 10}))
+# the IP addresses of the targets - local IP is stored within BACpypes.ini file
+ip_addresses = []
+ip_addresses.extend(os.getenv("IP_ADDRESSES").split(","))
+# the BACnet addresses of the targets
+bacnet_addresses = []
+bacnet_addresses.extend(os.getenv("BACNET_ADDRESSES").split(","))
+#is each target dual or single channel
+device_types = []
+device_types.extend(os.getenv("DEVICE_TYPES").split(","))
 
 # point list
-point_list = [
+point_list = []
+
+for x in range(len(ip_addresses)):
+    point_list.extend([
     #ChA Signal Amplitude
-    (ip_address, 'analogInput:105', 'presentValue'),
+    (ip_addresses[x], 'analogInput:105', 'presentValue', bacnet_addresses[x]),
     #ChA Sound Speed
-    (ip_address, 'analogInput:106', 'presentValue'),
+    (ip_addresses[x], 'analogInput:106', 'presentValue', bacnet_addresses[x]),
     #ChA Flow Rate & Diagnostics
-    (ip_address, 'analogInput:111', 'presentValue'),
-    (ip_address, 'analogInput:111', 'eventState'),
-    (ip_address, 'analogInput:111', 'reliability'),
-    (ip_address, 'analogInput:111', 'outOfService'),
+    (ip_addresses[x], 'analogInput:111', 'presentValue', bacnet_addresses[x]),
+    (ip_addresses[x], 'analogInput:111', 'eventState', bacnet_addresses[x]),
+    (ip_addresses[x], 'analogInput:111', 'reliability', bacnet_addresses[x]),
+    (ip_addresses[x], 'analogInput:111', 'outOfService', bacnet_addresses[x]),
     #ChA SNR
-    (ip_address, 'analogInput:121', 'presentValue'),
+    (ip_addresses[x], 'analogInput:121', 'presentValue', bacnet_addresses[x]),
     #ChA SCNR
-    (ip_address, 'analogInput:122', 'presentValue'),
-    #ChB Signal Amplitude
-    (ip_address, 'analogInput:205', 'presentValue'),
-    #ChB Sound Speed
-    (ip_address, 'analogInput:206', 'presentValue'),
-    #ChB Flow Rate & Diagnostics
-    (ip_address, 'analogInput:211', 'presentValue'),
-    (ip_address, 'analogInput:211', 'eventState'),
-    (ip_address, 'analogInput:211', 'reliability'),
-    (ip_address, 'analogInput:211', 'outOfService'),
-    #ChB SNR
-    (ip_address, 'analogInput:221', 'presentValue'),
-    #ChB SCNR
-    (ip_address, 'analogInput:222', 'presentValue')
-    ]
+    (ip_addresses[x], 'analogInput:122', 'presentValue', bacnet_addresses[x])
+    ])
+    if device_types[x] == "dual":
+        point_list.extend([
+        #ChB Signal Amplitude
+        (ip_addresses[x], 'analogInput:205', 'presentValue', bacnet_addresses[x]),
+        #ChB Sound Speed
+        (ip_addresses[x], 'analogInput:206', 'presentValue', bacnet_addresses[x]),
+        #ChB Flow Rate & Diagnostics
+        (ip_addresses[x], 'analogInput:211', 'presentValue', bacnet_addresses[x]),
+        (ip_addresses[x], 'analogInput:211', 'eventState', bacnet_addresses[x]),
+        (ip_addresses[x], 'analogInput:211', 'reliability', bacnet_addresses[x]),
+        (ip_addresses[x], 'analogInput:211', 'outOfService', bacnet_addresses[x]),
+        #ChB SNR
+        (ip_addresses[x], 'analogInput:221', 'presentValue', bacnet_addresses[x]),
+        #ChB SCNR
+        (ip_addresses[x], 'analogInput:222', 'presentValue', bacnet_addresses[x])
+        ])
+    
 #
 #   PrairieDog
 #
@@ -134,7 +148,7 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
                     valueType = "VARCHAR"
                 self.records.append({
                     'Time': currentTime,
-                    'Dimensions': [{'Name': 'tag', 'Value': '457999'},
+                    'Dimensions': [{'Name': 'tag', 'Value': request[3]},
                                    {'Name': 'BACnet_ref', 'Value': request[1]}],
                     'MeasureName': request[2],
                     'MeasureValue': str(response),
@@ -147,7 +161,7 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
             
             # replace with correct database and table names
             try:
-                result = client.write_records(DatabaseName="y",TableName="t",Records=self.records)
+                result = client.write_records(DatabaseName=os.getenv("DATABASE"), TableName=os.getenv("TABLE"), Records=self.records)
                 #print("WriteRecords Status: [%s]" % result['ResponseMetadata']['HTTPStatusCode'])
             except client.exceptions.RejectedRecordsException as err:
                 _print_rejected_recrods_Exceptions(err)
@@ -160,7 +174,7 @@ class PrairieDog(BIPSimpleApplication, RecurringTask):
             return
 
         # get the next request
-        addr, obj_id, prop_id = self.point_queue.popleft()
+        addr, obj_id, prop_id, bacnet_ref = self.point_queue.popleft()
         obj_id = ObjectIdentifier(obj_id).value
 
         # build a request
